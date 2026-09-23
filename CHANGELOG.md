@@ -4,6 +4,8 @@ Alle wichtigen Änderungen an Ports werden hier versioniert. Die Versionsnummern
 
 ## Unveröffentlicht
 
+## [0.1.2] - 2026-09-23
+
 ### Behoben
 
 - Intervall-Blöcke zeigen geplante Läufe jetzt als laufend, erfolgreich oder fehlgeschlagen an.
