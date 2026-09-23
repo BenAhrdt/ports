@@ -64,7 +64,7 @@ release_date="$(date +%Y-%m-%d)"
 echo "Erhöhe Ports von $current_version auf $next_version …"
 npm version "$next_version" --no-git-tag-version --ignore-scripts >/dev/null
 printf '%s\n' "$next_version" > VERSION
-sed -i "0,/^## Unveröffentlicht$/s//## [$next_version] - $release_date/" CHANGELOG.md
+sed -i "0,/^## \[$next_version\] - $release_date$/s//## Unveröffentlicht\\n\\n## [$next_version] - $release_date/" CHANGELOG.md
 
 grep -q "^## \[$next_version\] - $release_date$" CHANGELOG.md \
   || fail "CHANGELOG.md enthält keinen Bereich für $next_version."
