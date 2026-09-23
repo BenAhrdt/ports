@@ -4,6 +4,11 @@ Alle wichtigen Änderungen an Ports werden hier versioniert. Die Versionsnummern
 
 ## Unveröffentlicht
 
+### Behoben
+
+- Intervall-Blöcke zeigen geplante Läufe jetzt als laufend, erfolgreich oder fehlgeschlagen an.
+- Gespeicherte Zugangsdaten verwenden normalisierte, serverbezogene Schlüssel, damit Pfadänderungen, Leerzeichen oder unterschiedliche Schreibweisen nach einem Reload nicht zu einem falschen fehlenden Passwort führen.
+
 ## [0.1.1] - 2026-09-23
 
 ### Hinzugefügt

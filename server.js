@@ -184,8 +184,41 @@ function parseUncPath(value) {
   return { share: `\\\\${match[1]}\\${match[2]}`, server: match[1], shareName: match[2], relativePath };
 }
 
+function normalizedCredentialPart(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function credentialKey(config, parsedPath) {
-  return `${parsedPath.share.toLowerCase()}|${String(config.domain || '').toLowerCase()}|${String(config.username || '').toLowerCase()}`;
+  return `${normalizedCredentialPart(parsedPath.server)}|${normalizedCredentialPart(config.domain)}|${normalizedCredentialPart(config.username)}`;
+}
+
+function credentialResourceServer(resource) {
+  const match = String(resource || '').match(/^\\\\([^\\]+)/);
+  return normalizedCredentialPart(match ? match[1] : resource);
+}
+
+function storedNetworkCredential(config, parsedPath) {
+  const key = credentialKey(config, parsedPath);
+  let credential = storedCredentials.get(key);
+  if (!credential) {
+    const server = normalizedCredentialPart(parsedPath.server);
+    const domain = normalizedCredentialPart(config.domain);
+    const username = normalizedCredentialPart(config.username);
+    for (const [storedKey, value] of storedCredentials.entries()) {
+      const resource = storedKey.split('|', 1)[0];
+      if (credentialResourceServer(resource) === server
+        && normalizedCredentialPart(value.domain) === domain
+        && normalizedCredentialPart(value.username) === username) {
+        credential = value;
+        break;
+      }
+    }
+  }
+  if (credential && !storedCredentials.has(key)) {
+    storedCredentials.set(key, credential);
+    persistCredentials();
+  }
+  return credential;
 }
 
 function credentialsFor(config, parsedPath) {
@@ -196,7 +229,7 @@ function credentialsFor(config, parsedPath) {
   if (suppliedPassword) {
     rememberCredential(key, { username, domain, password: suppliedPassword });
   }
-  const password = suppliedPassword || storedCredentials.get(key)?.password || '';
+  const password = suppliedPassword || storedNetworkCredential(config, parsedPath)?.password || '';
   if (username && !password) {
     throw new Error('Passwort fehlt. Bitte im Konfigurationsfeld eingeben.');
   }
@@ -204,7 +237,7 @@ function credentialsFor(config, parsedPath) {
 }
 
 function imapCredentialKey(config) {
-  return `${String(config.host || '').trim().toLowerCase()}|${Number(config.port || 993)}|${String(config.username || '').trim().toLowerCase()}`;
+  return `${normalizedCredentialPart(config.host)}|${Number(config.port || 993)}|${normalizedCredentialPart(config.username)}`;
 }
 
 function imapCredentialsFor(config) {
@@ -372,7 +405,7 @@ app.post('/api/credentials/status', (request, response) => {
   try {
     const config = request.body?.config ?? {};
     const parsedPath = parseUncPath(config.path);
-    const available = storedCredentials.has(credentialKey(config, parsedPath));
+    const available = Boolean(storedNetworkCredential(config, parsedPath));
     return response.json({ ok: true, available });
   } catch {
     return response.json({ ok: true, available: false });

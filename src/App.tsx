@@ -264,6 +264,12 @@ function Editor() {
   const runWorkflow = async (scheduled = false) => {
     if (running) return;
     const intervalNode = nodes.find((node) => node.data.blockType === 'interval');
+    const markInterval = (status: BlockNodeData['status'], statusMessage: string, statusDetails: string) => {
+      if (!scheduled || !intervalNode) return;
+      setNodes((current) => current.map((node) => node.id === intervalNode.id
+        ? { ...node, data: { ...node.data, status, statusMessage, statusDetails } }
+        : node));
+    };
     const scheduledSourceIds = new Set(scheduled && intervalNode
       ? edges.filter((edge) => edge.source === intervalNode.id).map((edge) => edge.target)
       : []);
@@ -280,15 +286,18 @@ function Editor() {
       .map(() => targetNode!.id));
     const hasNetworkWrites = Boolean(networkConnected) || imapTargetNodeIds.size > 0;
     if (!imapNodes.length && !networkConnected) {
-      setNotice(nodes.some((node) => node.data.blockType === 'imap')
+      const message = nodes.some((node) => node.data.blockType === 'imap')
         ? 'Bitte IMAP-Server und Benutzernamen konfigurieren'
-        : 'Netzwerk-Quelle und -Ziel müssen miteinander verbunden sein');
+        : 'Netzwerk-Quelle und -Ziel müssen miteinander verbunden sein';
+      markInterval('error', 'Intervall fehlgeschlagen', message);
+      setNotice(message);
       return;
     }
 
     setRunning(true);
     setNotice(imapNodes.length && hasNetworkWrites ? 'Postfach und Netzwerkordner werden verarbeitet …' : imapNodes.length ? 'Postfach wird geprüft …' : 'Netzwerkordner werden verarbeitet …');
     const runningNodeIds = new Set([
+      ...(scheduled && intervalNode ? [intervalNode.id] : []),
       ...imapNodes.map((node) => node.id),
       ...imapTargetNodeIds,
       ...(networkConnected ? [sourceNode!.id, targetNode!.id] : []),
@@ -297,6 +306,7 @@ function Editor() {
       ? { ...node, data: { ...node.data, status: 'running', statusMessage: 'Verarbeitung läuft', statusDetails: 'Die Quelle wird vorbereitet.' } }
       : node));
     const summaries: string[] = [];
+    let runFailed = false;
     try {
       for (const imapNode of imapNodes) {
         try {
@@ -317,6 +327,7 @@ function Editor() {
             result = { ok: false, error: `Ungültige Backend-Antwort (${response.status}). Bitte npm run dev neu starten.` };
           }
           if (!response.ok || !result.ok) {
+            runFailed = true;
             const detail = result.error || `Backend-Fehler ${response.status}`;
             const message = result.stage ? `${result.stage}: ${detail}` : detail;
             setNodes((current) => current.map((node) => {
@@ -396,6 +407,7 @@ function Editor() {
           }));
           summaries.push(`${matches.length} passende Anhänge`);
         } catch (error) {
+          runFailed = true;
           const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
           const imapTargetConnected = Boolean(targetNode && edges.some((edge) => edge.source === imapNode.id && edge.target === targetNode.id));
           setNodes((current) => current.map((node) => {
@@ -423,6 +435,7 @@ function Editor() {
             result = { ok: false, error: `Ungültige Backend-Antwort (${response.status}). Bitte npm run dev neu starten.` };
           }
           if (!response.ok || !result.ok) {
+            runFailed = true;
             const detail = result.error || `Backend-Fehler ${response.status}`;
             const message = result.stage ? `${result.stage}: ${detail}` : detail;
             const targetFailed = Boolean(result.stage?.includes('Ziel'));
@@ -467,6 +480,7 @@ function Editor() {
             summaries.push(summary);
           }
         } catch (error) {
+          runFailed = true;
           const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
           setNodes((current) => current.map((node) => networkNodeIds.has(node.id)
             ? { ...node, data: { ...node.data, status: 'error', statusMessage: 'Letzter Lauf fehlgeschlagen', statusDetails: message } }
@@ -475,11 +489,18 @@ function Editor() {
         }
       }
       setNotice(summaries.join(' · ') || 'Lauf abgeschlossen');
+      const completedAt = new Date().toLocaleTimeString();
+      markInterval(
+        runFailed ? 'error' : 'success',
+        runFailed ? 'Intervall fehlgeschlagen' : 'Intervall erfolgreich ausgeführt',
+        `${summaries.join(' · ') || 'Lauf abgeschlossen'} · um ${completedAt}`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
       setNodes((current) => current.map((node) => runningNodeIds.has(node.id)
         ? { ...node, data: { ...node.data, status: 'error', statusMessage: 'Letzter Lauf fehlgeschlagen', statusDetails: message } }
         : node));
+      markInterval('error', 'Intervall fehlgeschlagen', message);
       setNotice(`Fehler: ${message}`);
     } finally {
       setRunning(false);
@@ -664,26 +685,34 @@ function Editor() {
           return <label key={field.id}>{field.label}{field.required && <em> erforderlich</em>}
             {field.type === 'select'
               ? <select value={String(value)} onChange={(e) => updateSelected(field.id, e.target.value)}>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
-              : <input
-                type={field.type}
-                min={field.min}
-                max={field.max}
-                step={field.step}
-                value={String(value)}
-                placeholder={field.type === 'password' && secretAvailable[selectedNode.id] ? '••••••••••' : field.placeholder}
-                onChange={(e) => updateSelected(field.id, field.type === 'number'
-                  ? (e.target.value === '' ? '' : Number(e.target.value))
-                  : e.target.value)}
-                onBlur={field.type === 'password'
-                  ? () => { void saveCredential(selectedNode, value); }
-                  : field.type === 'number' && (field.min !== undefined || field.max !== undefined) ? (e) => {
-                    const parsed = Number(e.currentTarget.value);
-                    const finiteValue = Number.isFinite(parsed) ? parsed : Number(field.defaultValue ?? field.min ?? 0);
-                    const steppedValue = field.step === 1 ? Math.round(finiteValue) : finiteValue;
-                    const boundedValue = Math.max(field.min ?? Number.NEGATIVE_INFINITY, Math.min(field.max ?? Number.POSITIVE_INFINITY, steppedValue));
-                    updateSelected(field.id, boundedValue);
-                  } : undefined}
-              />}
+              : <div className={field.type === 'password' ? 'secret-field' : undefined}>
+                <input
+                  type={field.type}
+                  min={field.min}
+                  max={field.max}
+                  step={field.step}
+                  value={String(value)}
+                  placeholder={field.type === 'password' && secretAvailable[selectedNode.id] ? '••••••••••' : field.placeholder}
+                  onChange={(e) => updateSelected(field.id, field.type === 'number'
+                    ? (e.target.value === '' ? '' : Number(e.target.value))
+                    : e.target.value)}
+                  onBlur={field.type === 'password'
+                    ? () => { void saveCredential(selectedNode, value); }
+                    : field.type === 'number' && (field.min !== undefined || field.max !== undefined) ? (e) => {
+                      const parsed = Number(e.currentTarget.value);
+                      const finiteValue = Number.isFinite(parsed) ? parsed : Number(field.defaultValue ?? field.min ?? 0);
+                      const steppedValue = field.step === 1 ? Math.round(finiteValue) : finiteValue;
+                      const boundedValue = Math.max(field.min ?? Number.NEGATIVE_INFINITY, Math.min(field.max ?? Number.POSITIVE_INFINITY, steppedValue));
+                      updateSelected(field.id, boundedValue);
+                    } : undefined}
+                />
+                {field.type === 'password' && <button
+                  type="button"
+                  className="save-secret-button"
+                  disabled={typeof value !== 'string' || !value}
+                  onClick={() => { void saveCredential(selectedNode, value); }}
+                >Speichern</button>}
+              </div>}
             {field.help && <small className="field-help">{field.help}</small>}
           </label>;
         })}
@@ -715,7 +744,7 @@ function Editor() {
           </section>
           <section className="settings-card">
             <h3>Zugangsdaten</h3>
-            <p>IMAP- und SMB-Benutzernamen werden zusammen mit den Passwörtern dauerhaft im Backend gespeichert. Passwörter liegen verschlüsselt in <code>data/credentials.enc</code> und werden nicht im Browser-Workflow abgelegt.</p>
+            <p>IMAP- und SMB-Benutzernamen werden zusammen mit den Passwörtern dauerhaft im Backend gespeichert. Passwörter liegen verschlüsselt in <code>PORTS_DATA_DIR/credentials.enc</code> und werden nicht im Browser-Workflow abgelegt.</p>
           </section>
         </div>
       </section>
