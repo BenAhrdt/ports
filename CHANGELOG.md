@@ -4,6 +4,8 @@ Alle wichtigen Änderungen an Ports werden hier versioniert. Die Versionsnummern
 
 ## Unveröffentlicht
 
+## [0.1.1] - 2026-09-23
+
 ### Hinzugefügt
 
 - GitHub-Actions-Workflows für CI-Tests bei Pushes/Pull Requests und tagbasierte Releases.
