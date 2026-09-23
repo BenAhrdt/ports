@@ -47,20 +47,22 @@ Alternativ kann in **Einstellungen → Version und Aktualisierungen** nach neuen
 
 Bei jedem Push auf `main` und bei jedem Pull Request startet der Workflow **CI** automatisch. Er testet Ports mit Node.js 20 und 22 und führt jeweils `npm ci`, `npm test` und `npm run build` aus. Über **Actions → CI → Run workflow** kann dieser Test auch jederzeit manuell gestartet werden.
 
-Ein Release wird durch das Pushen eines passenden Tags gestartet. Vorher müssen `VERSION`, `package.json` und `CHANGELOG.md` angepasst werden:
+Ein Release wird mit [release.sh](release.sh) vorbereitet. Als Argument sind `patch`, `minor` oder `major` möglich:
 
 ```bash
-# Beispiel: Version 0.1.1 eintragen und CHANGELOG.md ergänzen
-npm version 0.1.1 --no-git-tag-version
-printf '0.1.1\n' > VERSION
+# Patch: 0.1.0 -> 0.1.1
+./release.sh patch
 
-npm test
-npm run build
-git add VERSION package.json package-lock.json CHANGELOG.md
-git commit -m "Release v0.1.1"
-git tag -a v0.1.1 -m "Release v0.1.1"
-git push origin main --follow-tags
+# Minor: 0.1.1 -> 0.2.0
+./release.sh minor
+
+# Major: 0.2.0 -> 1.0.0
+./release.sh major
 ```
+
+Das Skript aktualisiert `VERSION`, `package.json`, `package-lock.json` und den Changelog, führt Tests und Build aus, erstellt Commit und Tag und pusht beides nach `origin/main`. Vorher muss das Arbeitsverzeichnis sauber sein und auf `main` stehen. Mit `./release.sh patch --dry-run` kann der geplante Versionssprung vorher angezeigt werden.
+
+Der Changelog-Bereich **Unveröffentlicht** wird beim Release automatisch mit der neuen Versionsnummer und dem aktuellen Datum versehen. Eigene Release-Hinweise sollten dort vor dem Aufruf ergänzt werden.
 
 Der Workflow **Release** testet den Tag anschließend erneut. Nur wenn Versionsprüfung, Tests und Build erfolgreich sind, wird das GitHub-Release mit automatisch erzeugten Release Notes angelegt. Über **Actions → Release → Run workflow** kann ein bereits gepushter Tag erneut getestet werden; dabei kann das Veröffentlichen des Release optional deaktiviert werden.
 

@@ -7,6 +7,7 @@ Alle wichtigen Änderungen an Ports werden hier versioniert. Die Versionsnummern
 ### Hinzugefügt
 
 - GitHub-Actions-Workflows für CI-Tests bei Pushes/Pull Requests und tagbasierte Releases.
+- `release.sh` für automatisierte Patch-, Minor- und Major-Releases.
 
 ## [0.1.0] - 2026-09-23
 
