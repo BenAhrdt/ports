@@ -43,6 +43,27 @@ Auch das Update-Skript muss als `root` laufen, weil es den Quellcode aktualisier
 
 Alternativ kann in **Einstellungen → Version und Aktualisierungen** nach neuen Releases gesucht und das Update gestartet werden. Während des Dienstneustarts zeigt die Oberfläche den aktuellen Update-Schritt und Fortschritt an. Der Update-Dienst prüft vorab, dass keine lokalen Änderungen im Installationsverzeichnis liegen.
 
+## GitHub Actions und Releases
+
+Bei jedem Push auf `main` und bei jedem Pull Request startet der Workflow **CI** automatisch. Er testet Ports mit Node.js 20 und 22 und führt jeweils `npm ci`, `npm test` und `npm run build` aus. Über **Actions → CI → Run workflow** kann dieser Test auch jederzeit manuell gestartet werden.
+
+Ein Release wird durch das Pushen eines passenden Tags gestartet. Vorher müssen `VERSION`, `package.json` und `CHANGELOG.md` angepasst werden:
+
+```bash
+# Beispiel: Version 0.1.1 eintragen und CHANGELOG.md ergänzen
+npm version 0.1.1 --no-git-tag-version
+printf '0.1.1\n' > VERSION
+
+npm test
+npm run build
+git add VERSION package.json package-lock.json CHANGELOG.md
+git commit -m "Release v0.1.1"
+git tag -a v0.1.1 -m "Release v0.1.1"
+git push origin main --follow-tags
+```
+
+Der Workflow **Release** testet den Tag anschließend erneut. Nur wenn Versionsprüfung, Tests und Build erfolgreich sind, wird das GitHub-Release mit automatisch erzeugten Release Notes angelegt. Über **Actions → Release → Run workflow** kann ein bereits gepushter Tag erneut getestet werden; dabei kann das Veröffentlichen des Release optional deaktiviert werden.
+
 Für einen Produktions-Build:
 
 ```bash
