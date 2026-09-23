@@ -64,7 +64,7 @@ Das Skript aktualisiert `VERSION`, `package.json`, `package-lock.json` und den C
 
 Der Changelog-Bereich **Unveröffentlicht** wird beim Release automatisch mit der neuen Versionsnummer und dem aktuellen Datum versehen. Eigene Release-Hinweise sollten dort vor dem Aufruf ergänzt werden.
 
-Der Workflow **Release** testet den Tag anschließend erneut. Nur wenn Versionsprüfung, Tests und Build erfolgreich sind, wird das GitHub-Release mit automatisch erzeugten Release Notes angelegt. Über **Actions → Release → Run workflow** kann ein bereits gepushter Tag erneut getestet werden; dabei kann das Veröffentlichen des Release optional deaktiviert werden.
+Der Workflow **Release** testet den Tag anschließend erneut. Nur wenn Versionsprüfung, Tests und Build erfolgreich sind, wird das GitHub-Release angelegt. Als Release Notes wird dabei automatisch der passende Versionsbereich aus `CHANGELOG.md` übernommen. Über **Actions → Release → Run workflow** kann ein bereits gepushter Tag erneut getestet werden; dabei kann das Veröffentlichen des Release optional deaktiviert werden.
 
 Für einen Produktions-Build:
 
